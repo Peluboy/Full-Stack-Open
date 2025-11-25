@@ -8,6 +8,10 @@ import Notification from './components/Notification'
 
 const App = () => {
   const [persons, setPersons] = useState([])
+  
+  // to ensure persons is always an array
+  const safePersons = Array.isArray(persons) ? persons : []
+  
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [filter, setFilter] = useState('')
@@ -15,9 +19,20 @@ const App = () => {
   const [messageType, setMessageType] = useState('success')
 
   useEffect(() => {
-    personService.getAll().then(initialPersons => {
-      setPersons(initialPersons)
-    })
+    personService.getAll()
+      .then(initialPersons => {
+        
+        if (Array.isArray(initialPersons)) {
+          setPersons(initialPersons);
+        } else {
+          console.error('Expected array but received:', initialPersons);
+          setPersons([]);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching persons:', error);
+        setPersons([]);
+      });
   }, [])
 
     const showMessage = (text, type = 'success') => {
@@ -30,7 +45,7 @@ const App = () => {
 
 const addPerson = (event) => {
     event.preventDefault()
-    const existing = persons.find(p => p.name.toLowerCase() === newName.toLowerCase())
+    const existing = safePersons.find(p => p.name.toLowerCase() === newName.toLowerCase())
     const newPerson = { name: newName, number: newNumber }
 
     if (existing) {
@@ -41,7 +56,7 @@ const addPerson = (event) => {
         personService
           .update(existing.id, { ...existing, number: newNumber })
           .then(updatedPerson => {
-            setPersons(persons.map(p => (p.id !== existing.id ? p : updatedPerson)))
+            setPersons(safePersons.map(p => (p.id !== existing.id ? p : updatedPerson)))
             showMessage(`Updated ${newName}`)
             setNewName('')
             setNewNumber('')
@@ -51,7 +66,7 @@ const addPerson = (event) => {
               `Information of ${newName} has already been removed from server`,
               'error'
             )
-            setPersons(persons.filter(p => p.id !== existing.id))
+            setPersons(safePersons.filter(p => p.id !== existing.id))
           })
       }
       return
@@ -60,7 +75,7 @@ const addPerson = (event) => {
     personService
       .create(newPerson)
       .then(returnedPerson => {
-        setPersons(persons.concat(returnedPerson))
+        setPersons(safePersons.concat(returnedPerson))
         showMessage(`Added ${newName}`)
         setNewName('')
         setNewNumber('')
@@ -71,14 +86,14 @@ const addPerson = (event) => {
   }
 
 const deletePerson = (id) => {
-    const person = persons.find(p => p.id === id)
+    const person = safePersons.find(p => p.id === id)
     if (!person) return
 
     if (window.confirm(`Delete ${person.name}?`)) {
       personService
         .remove(id)
         .then(() => {
-          setPersons(persons.filter(p => p.id !== id))
+          setPersons(safePersons.filter(p => p.id !== id))
           showMessage(`Deleted ${person.name}`)
         })
         .catch(() => {
@@ -86,7 +101,7 @@ const deletePerson = (id) => {
             `Information of ${person.name} has already been removed from server`,
             'error'
           )
-          setPersons(persons.filter(p => p.id !== id))
+          setPersons(safePersons.filter(p => p.id !== id))
         })
     }
   }
@@ -95,7 +110,7 @@ const deletePerson = (id) => {
   const handleNumberChange = (e) => setNewNumber(e.target.value)
   const handleFilterChange = (e) => setFilter(e.target.value)
 
-  const personsToShow = persons.filter(p =>
+  const personsToShow = safePersons.filter(p =>
     p.name.toLowerCase().includes(filter.toLowerCase())
   )
 
